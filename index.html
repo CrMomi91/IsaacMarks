@@ -6,6 +6,8 @@
 <title>以撒的结合 · 通关标记登记</title>
 <style>
 * { box-sizing: border-box; }
+html { scrollbar-width: none; }
+::-webkit-scrollbar { display: none; }
 body {
   margin: 0;
   padding: 20px;
@@ -14,9 +16,11 @@ body {
   font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
   text-align: center;
 }
+.note { font-size: 12px; color: #888; margin-bottom: 8px; }
 .stats { font-size: 13px; color: #444; margin-bottom: 12px; }
 .table-wrap {
   display: inline-block;
+  position: relative;
   max-width: 100%;
   overflow-x: auto;
   background: #fff;
@@ -26,6 +30,25 @@ body {
   box-shadow: 0 1px 4px rgba(0,0,0,.08);
   text-align: left;
 }
+.fs-track {
+  position: absolute;
+  bottom: 4px;
+  left: 12px;
+  right: 12px;
+  height: 8px;
+  cursor: pointer;
+  z-index: 5;
+}
+.fs-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  min-width: 26px;
+  background: rgba(0,0,0,0.22);
+  border-radius: 4px;
+}
+.fs-track:hover .fs-thumb { background: rgba(0,0,0,0.4); }
 table { border-collapse: collapse; margin: 0 auto; }
 th, td { border: 1px solid #c4bfb3; }
 td { padding: 0; width: 44px; height: 44px; }
@@ -70,6 +93,14 @@ td.spacer-row { border: none; background: #fff; height: 10px; }
   font-size: 12px;
   margin-top: 6px;
 }
+.path-tip { color: #666; margin-top: 8px; line-height: 1.6; }
+.copy-link {
+  color: #2a5db0;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0 2px;
+}
+.copy-link:hover { color: #17448f; }
 .btnrow { margin-top: 6px; display: flex; gap: 8px; }
 button {
   padding: 4px 14px;
@@ -84,11 +115,17 @@ button.danger { background: #f3dcdc; color: #a11; }
 </head>
 <body>
 <h1>以撒的结合 · 通关标记登记</h1>
+<div class="note">可以通过左右键点击来切换角色解锁与标记达成情况。</div>
 <div class="stats" id="stats"></div>
 <div class="table-wrap" id="wrap"></div>
 <details class="panel">
   <summary>数据导入 / 导出 / 重置</summary>
   <textarea id="io" placeholder="点击“导出到文本框”将数据粘贴到此处保存，需要时再点“从文本框导入”"></textarea>
+  <div class="path-tip">
+    可在文件名位置输入此路径以快速跳转到存档文件夹：
+    <span class="copy-link" data-copy="%USERPROFILE%\Documents\My Games\Binding of Isaac Repentance">忏悔</span> /
+    <span class="copy-link" data-copy="C:\Users\28671\Documents\My Games\Binding of Isaac Repentance+\save_backups">忏悔+</span>
+  </div>
   <div class="btnrow">
     <button id="btnFile">导入存档文件(.dat)</button>
     <button id="btnExport">导出到文本框</button>
@@ -129,7 +166,7 @@ button.danger { background: #f3dcdc; color: #a11; }
   var SHADOW = "4px 4px 0 #cfc9bd";
   var UNLOCK_TXT = ["（未解锁）", "（已解锁）", "（堕化已解锁）"];
 
-  var UNLOCK_ACH_IDX = [0, 1, 2, 3, 32, 42, 67, 79, 80, 82, 81, 199, 251, 340, 390, 404, 405];
+  var UNLOCK_ACH_IDX = [0, 1, 2, 3, 32, 42, 67, 79, 80, 81, 82, 199, 251, 340, 390, 404, 405];
   var STORE_ORDER = [0, 3, 4, 1, 5, 6, 7, 11, 2, 8, 9, 10];
 
   function parseIsaacSave(bytes) {
@@ -148,8 +185,8 @@ button.danger { background: #f3dcdc; color: #a11; }
 
     var unlock = [];
     for (var i = 0; i < N; i++) {
-      var n = bytes[sec0 + 1 + UNLOCK_ACH_IDX[i]] !== 0;
-      var t = bytes[sec0 + 1 + 473 + i] !== 0;
+      var n = i === 0 ? true : (bytes[sec0 + UNLOCK_ACH_IDX[i]] !== 0);
+      var t = bytes[sec0 + 474 + i] !== 0;
       unlock.push(n && t ? 2 : (n ? 1 : 0));
     }
 
@@ -396,6 +433,49 @@ button.danger { background: #f3dcdc; color: #a11; }
     wrap.innerHTML = "";
     wrap.appendChild(t);
     updateStats();
+    initScrollbar();
+  }
+
+  var scrollTrack = null, scrollThumb = null;
+
+  function updateScrollbar() {
+    var wrap = document.getElementById("wrap");
+    if (!scrollTrack) return;
+    var sw = wrap.scrollWidth, cw = wrap.clientWidth;
+    if (sw <= cw + 1) { scrollTrack.style.display = "none"; return; }
+    scrollTrack.style.display = "block";
+    var tw = scrollTrack.clientWidth;
+    var thW = Math.max(26, cw / sw * tw);
+    scrollThumb.style.width = thW + "px";
+    var maxLeft = tw - thW;
+    var ratio = wrap.scrollLeft / (sw - cw);
+    scrollThumb.style.left = (ratio * maxLeft) + "px";
+  }
+
+  function initScrollbar() {
+    var wrap = document.getElementById("wrap");
+    if (!scrollTrack) {
+      scrollTrack = document.createElement("div");
+      scrollTrack.className = "fs-track";
+      scrollThumb = document.createElement("div");
+      scrollThumb.className = "fs-thumb";
+      scrollTrack.appendChild(scrollThumb);
+      wrap.addEventListener("scroll", updateScrollbar);
+      window.addEventListener("resize", updateScrollbar);
+      scrollTrack.addEventListener("click", function (e) {
+        var r = scrollTrack.getBoundingClientRect();
+        var x = e.clientX - r.left;
+        var tw = scrollTrack.clientWidth;
+        var thW = scrollThumb.clientWidth;
+        var maxLeft = tw - thW;
+        var ratio = (x - thW / 2) / maxLeft;
+        if (ratio < 0) ratio = 0;
+        if (ratio > 1) ratio = 1;
+        wrap.scrollLeft = ratio * (wrap.scrollWidth - wrap.clientWidth);
+      });
+    }
+    wrap.appendChild(scrollTrack);
+    updateScrollbar();
   }
 
   function aggAllN(j) {
@@ -470,6 +550,33 @@ button.danger { background: #f3dcdc; color: #a11; }
   document.getElementById("btnFile").onclick = function () {
     document.getElementById("fileInput").click();
   };
+
+  function copyText(text) {
+    function ok() { alert("已复制路径：\n" + text); }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); ok(); }
+      catch (e) { alert("复制失败，请手动复制：\n" + text); }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(ok, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  var copyLinks = document.querySelectorAll(".copy-link");
+  for (var cl = 0; cl < copyLinks.length; cl++) {
+    copyLinks[cl].addEventListener("click", function () {
+      copyText(this.getAttribute("data-copy"));
+    });
+  }
 
   document.getElementById("fileInput").onchange = function () {
     var file = this.files && this.files[0];
