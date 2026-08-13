@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>以撒的结合 · 通关标记登记</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 20px;
+  background: #ece9e0;
+  color: #222;
+  font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+  text-align: center;
+}
+.stats { font-size: 13px; color: #444; margin-bottom: 12px; }
+.table-wrap {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #c4bfb3;
+  border-radius: 6px;
+  padding: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  text-align: left;
+}
+table { border-collapse: collapse; margin: 0 auto; }
+th, td { border: 1px solid #c4bfb3; }
+td { padding: 0; width: 44px; height: 44px; }
+th.rowhead {
+  background: #e8e4da;
+  font-size: 13px;
+  padding: 6px 10px;
+  text-align: center;
+  white-space: nowrap;
+  font-weight: bold;
+}
+th.head {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+  background: #f4f1ea;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1.2;
+  white-space: normal;
+}
+th.head span { display: inline-block; }
+th.spacer-col, td.spacer-col { border: none; background: #fff; width: 10px; }
+td.spacer-row { border: none; background: #fff; height: 10px; }
+.cell {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, var(--ul) 49.6%, var(--ln, #999) 50%, var(--ln, #999) 50.4%, var(--lr) 50.4%);
+  cursor: pointer;
+}
+.panel { margin: 16px auto 0; font-size: 13px; display: block; width: fit-content; text-align: left; }
+.panel summary { cursor: pointer; color: #555; }
+.panel textarea {
+  width: 560px;
+  max-width: 100%;
+  height: 70px;
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  margin-top: 6px;
+}
+.btnrow { margin-top: 6px; display: flex; gap: 8px; }
+button {
+  padding: 4px 14px;
+  cursor: pointer;
+  border: 1px solid #999;
+  background: #f5f2ea;
+  border-radius: 4px;
+  font-size: 13px;
+}
+button.danger { background: #f3dcdc; color: #a11; }
+</style>
+</head>
+<body>
+<h1>以撒的结合 · 通关标记登记</h1>
+<div class="stats" id="stats"></div>
+<div class="table-wrap" id="wrap"></div>
+<details class="panel">
+  <summary>数据导入 / 导出 / 重置</summary>
+  <textarea id="io" placeholder="点击“导出到文本框”将数据粘贴到此处保存，需要时再点“从文本框导入”"></textarea>
+  <div class="btnrow">
+    <button id="btnFile">导入存档文件(.dat)</button>
+    <button id="btnExport">导出到文本框</button>
+    <button id="btnImport">从文本框导入</button>
+    <button id="btnReset" class="danger">全部重置</button>
+  </div>
+  <input type="file" id="fileInput" accept=".dat" style="display:none">
+</details>
+<script>
+(function () {
+  "use strict";
+
+  var CHARS = [
+    ["以撒", "堕化以撒"],
+    ["抹大拉", "堕化抹大拉"],
+    ["该隐", "堕化该隐"],
+    ["犹大", "堕化犹大"],
+    ["？？？", "堕化？？？"],
+    ["夏娃", "堕化夏娃"],
+    ["参孙", "堕化参孙"],
+    ["阿撒泻勒", "堕化阿撒泻勒"],
+    ["拉撒路", "堕化拉撒路"],
+    ["伊甸", "堕化伊甸"],
+    ["游魂", "堕化游魂"],
+    ["莉莉丝", "堕化莉莉丝"],
+    ["店主", "堕化店主"],
+    ["亚玻伦", "堕化亚玻伦"],
+    ["遗骸", "堕化遗骸"],
+    ["伯大尼", "堕化伯大尼"],
+    ["雅各和以扫", "堕化雅各和以扫"]
+  ];
+  var MARKS = ["妈妈的心", "Boss Rush", "死寂", "以撒", "撒旦", "？？？", "羔羊", "超级撒旦", "精神错乱", "母亲", "祸兽", "贪婪模式"];
+  var N = CHARS.length;
+  var M = MARKS.length;
+  var KEY = "isaac-marks-v1";
+  var COL = ["#ffffff", "#565656", "#d33131"];
+  var UNLOCK_COL = ["#bfb8ac", "#000000", "#000000"];
+  var SHADOW = "4px 4px 0 #cfc9bd";
+  var UNLOCK_TXT = ["（未解锁）", "（已解锁）", "（堕化已解锁）"];
+
+  var UNLOCK_ACH_IDX = [0, 1, 2, 3, 32, 42, 67, 79, 80, 82, 81, 199, 251, 340, 390, 404, 405];
+  var STORE_ORDER = [0, 3, 4, 1, 5, 6, 7, 11, 2, 8, 9, 10];
+
+  function parseIsaacSave(bytes) {
+    function u16(o) { return bytes[o] | (bytes[o + 1] << 8); }
+    function u32(o) { return bytes[o] | (bytes[o + 1] << 8) | (bytes[o + 2] << 16) | (bytes[o + 3] << 24); }
+
+    if (bytes.length < 0x100) return null;
+
+    var ofs = 0x14, sd = [0, 0, 0], el = [1, 4, 4, 1, 1, 1, 1, 4, 4, 1], so = [];
+    for (var s = 0; s < el.length; s++) {
+      for (var j = 0; j < 3; j++) { sd[j] = u16(ofs); ofs += 4; }
+      so[s] = ofs;
+      ofs += sd[2] * el[s];
+    }
+    var sec0 = so[0], sec1 = so[1];
+
+    var unlock = [];
+    for (var i = 0; i < N; i++) {
+      var n = bytes[sec0 + 1 + UNLOCK_ACH_IDX[i]] !== 0;
+      var t = bytes[sec0 + 1 + 473 + i] !== 0;
+      unlock.push(n && t ? 2 : (n ? 1 : 0));
+    }
+
+    function marksRaw(ci) {
+      var out = [], o, k;
+      if (ci === 14) {
+        o = sec1 + 0x32C;
+        for (k = 0; k < 12; k++) {
+          out.push(u32(o + k * 4) & 0xFF);
+          if (k === 8) o += 0x4;
+          if (k === 9) o += 0x37C;
+          if (k === 10) o += 0x84;
+        }
+      } else if (ci > 14) {
+        o = sec1 + 0x31C;
+        for (k = 0; k < 12; k++) {
+          out.push(u32(o + ci * 4 + k * 19 * 4) & 0xFF);
+          if (k === 8) o += 0x4C;
+          if (k === 9 || k === 10) o += 0x3C;
+        }
+      } else {
+        o = sec1 + 0x6C;
+        for (k = 0; k < 12; k++) {
+          out.push(u32(o + ci * 4 + k * 14 * 4) & 0xFF);
+          if (k === 5) o += 0x14;
+          if (k === 8) o += 0x3C;
+          if (k === 9) o += 0x3B0;
+          if (k === 10) o += 0x50;
+        }
+      }
+      return out;
+    }
+
+    function diff(v) {
+      var s = v & 3, on = (v >> 2) & 3;
+      if (s === 3) s = 2;
+      if (on === 3) on = 2;
+      return s > on ? s : on;
+    }
+
+    var marks = [];
+    for (i = 0; i < N; i++) {
+      var rawN = marksRaw(i);
+      var rawT = marksRaw(N + i);
+      var n = new Array(M).fill(0), t = new Array(M).fill(0);
+      for (var k = 0; k < M; k++) {
+        n[STORE_ORDER[k]] = diff(rawN[k]);
+        t[STORE_ORDER[k]] = diff(rawT[k]);
+      }
+      marks.push({ n: n, t: t });
+    }
+    return { unlock: unlock, marks: marks };
+  }
+
+  function initState() {
+    return {
+      unlock: new Array(N).fill(0),
+      marks: CHARS.map(function () { return { n: new Array(M).fill(0), t: new Array(M).fill(0) }; })
+    };
+  }
+
+  function normalize(s) {
+    if (!s || !Array.isArray(s.unlock) || s.unlock.length !== N || !Array.isArray(s.marks) || s.marks.length !== N) return null;
+    for (var i = 0; i < N; i++) {
+      var u = s.unlock[i];
+      if (u !== null && typeof u === "object") u = (u.n ? 1 : 0) + (u.t ? 1 : 0);
+      if (typeof u !== "number") u = 0;
+      s.unlock[i] = Math.max(0, Math.min(2, Math.round(u)));
+    }
+    return s;
+  }
+
+  function load() {
+    try {
+      var s = normalize(JSON.parse(localStorage.getItem(KEY)));
+      if (s) return s;
+    } catch (e) {}
+    return initState();
+  }
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function agg(arr) {
+    var allDone = true, allHard = true;
+    for (var k = 0; k < arr.length; k++) {
+      if (arr[k] === 0) allDone = false;
+      if (arr[k] < 2) allHard = false;
+    }
+    if (allHard) return 2;
+    if (allDone) return 1;
+    return 0;
+  }
+
+  function setCell(cell, ul, lr) {
+    cell.style.setProperty("--ul", COL[ul]);
+    cell.style.setProperty("--lr", COL[lr]);
+  }
+
+  function aggUnlockAll() {
+    var allDone = true, allTainted = true;
+    for (var i = 0; i < N; i++) {
+      var u = state.unlock[i];
+      if (u === 0) allDone = false;
+      if (u < 2) allTainted = false;
+    }
+    if (allTainted) return 2;
+    if (allDone) return 1;
+    return 0;
+  }
+
+  function build() {
+    var wrap = document.getElementById("wrap");
+    var t = document.createElement("table");
+
+    var cg = document.createElement("colgroup");
+    var col = document.createElement("col");
+    col.style.width = "110px";
+    cg.appendChild(col);
+    for (var ci = 0; ci < N; ci++) {
+      col = document.createElement("col");
+      col.style.width = "44px";
+      cg.appendChild(col);
+    }
+    col = document.createElement("col");
+    col.style.width = "10px";
+    cg.appendChild(col);
+    col = document.createElement("col");
+    col.style.width = "44px";
+    cg.appendChild(col);
+    t.appendChild(cg);
+
+    var tr = document.createElement("tr");
+    var th = document.createElement("th");
+    th.className = "rowhead";
+    th.textContent = "标记";
+    tr.appendChild(th);
+
+    for (var i = 0; i < N; i++) {
+      var thc = document.createElement("th");
+      thc.className = "head";
+      thc.dataset.i = i;
+      var span = document.createElement("span");
+      var name = CHARS[i][0];
+      if (name.length >= 4) span.innerHTML = name.slice(0, 2) + "<br>" + name.slice(2);
+      else span.textContent = name;
+      span.style.color = UNLOCK_COL[state.unlock[i]];
+      if (state.unlock[i] === 2) {
+        span.style.textShadow = SHADOW;
+        span.style.transform = "translate(-2px,-2px)";
+      }
+      thc.title = CHARS[i][0] + UNLOCK_TXT[state.unlock[i]];
+      thc.appendChild(span);
+      tr.appendChild(thc);
+    }
+
+    var thSp = document.createElement("th");
+    thSp.className = "spacer-col";
+    tr.appendChild(thSp);
+
+    var thAll = document.createElement("th");
+    thAll.className = "head";
+    var spanAll = document.createElement("span");
+    spanAll.textContent = "全部";
+    spanAll.style.color = UNLOCK_COL[aggUnlockAll()];
+    if (aggUnlockAll() === 2) {
+      spanAll.style.textShadow = SHADOW;
+      spanAll.style.transform = "translate(-2px,-2px)";
+    }
+    thAll.title = "全部角色" + UNLOCK_TXT[aggUnlockAll()];
+    thAll.style.cursor = "default";
+    thAll.appendChild(spanAll);
+    tr.appendChild(thAll);
+    t.appendChild(tr);
+
+    for (var j = 0; j < M; j++) {
+      tr = document.createElement("tr");
+      th = document.createElement("th");
+      th.className = "rowhead";
+      th.textContent = MARKS[j];
+      tr.appendChild(th);
+      for (i = 0; i < N; i++) {
+        var tdc = document.createElement("td");
+        var c = document.createElement("div");
+        c.className = "cell";
+        c.dataset.i = i;
+        c.dataset.j = j;
+        setCell(c, state.marks[i].n[j], state.marks[i].t[j]);
+        tdc.appendChild(c);
+        tr.appendChild(tdc);
+      }
+      var tdSp = document.createElement("td");
+      tdSp.className = "spacer-col";
+      tr.appendChild(tdSp);
+
+      var tda = document.createElement("td");
+      var ca = document.createElement("div");
+      ca.className = "cell";
+      ca.dataset.i = -1;
+      ca.dataset.j = j;
+      setCell(ca, aggAllN(j), aggAllT(j));
+      tda.appendChild(ca);
+      tr.appendChild(tda);
+      t.appendChild(tr);
+    }
+
+    var trSp = document.createElement("tr");
+    var tdSpRow = document.createElement("td");
+    tdSpRow.className = "spacer-row";
+    tdSpRow.colSpan = N + 3;
+    trSp.appendChild(tdSpRow);
+    t.appendChild(trSp);
+
+    tr = document.createElement("tr");
+    th = document.createElement("th");
+    th.className = "rowhead";
+    th.textContent = "全部";
+    tr.appendChild(th);
+    for (i = 0; i < N; i++) {
+      var tdr = document.createElement("td");
+      var cr = document.createElement("div");
+      cr.className = "cell";
+      cr.dataset.i = i;
+      cr.dataset.j = -1;
+      setCell(cr, agg(state.marks[i].n), agg(state.marks[i].t));
+      tdr.appendChild(cr);
+      tr.appendChild(tdr);
+    }
+    var tdSp2 = document.createElement("td");
+    tdSp2.className = "spacer-col";
+    tr.appendChild(tdSp2);
+
+    var tdc2 = document.createElement("td");
+    var cc = document.createElement("div");
+    cc.className = "cell";
+    cc.dataset.i = -1;
+    cc.dataset.j = -1;
+    setCell(cc, aggAllN(-1), aggAllT(-1));
+    tdc2.appendChild(cc);
+    tr.appendChild(tdc2);
+    t.appendChild(tr);
+
+    wrap.innerHTML = "";
+    wrap.appendChild(t);
+    updateStats();
+  }
+
+  function aggAllN(j) {
+    var arr = [];
+    for (var i = 0; i < N; i++) arr.push(j >= 0 ? state.marks[i].n[j] : agg(state.marks[i].n));
+    return agg(arr);
+  }
+
+  function aggAllT(j) {
+    var arr = [];
+    for (var i = 0; i < N; i++) arr.push(j >= 0 ? state.marks[i].t[j] : agg(state.marks[i].t));
+    return agg(arr);
+  }
+
+  function updateStats() {
+    var cn = 0, ct = 0, hn = 0, ht = 0;
+    for (var i = 0; i < N; i++) {
+      for (var j = 0; j < M; j++) {
+        if (state.marks[i].n[j] > 0) cn++;
+        if (state.marks[i].n[j] === 2) hn++;
+        if (state.marks[i].t[j] > 0) ct++;
+        if (state.marks[i].t[j] === 2) ht++;
+      }
+    }
+    var total = N * M * 2;
+    document.getElementById("stats").textContent =
+      "普通模式：" + (cn + ct) + " / " + total + " (" + cn + " + " + ct + ")，困难模式：" + (hn + ht) + " / " + total + " (" + hn + " + " + ht + ")";
+  }
+
+  function hitUL(cell, evt) {
+    var rect = cell.getBoundingClientRect();
+    var x = evt.clientX - rect.left;
+    var y = evt.clientY - rect.top;
+    return x / rect.width + y / rect.height < 1;
+  }
+
+  document.getElementById("wrap").addEventListener("click", function (e) {
+    var th = e.target.closest("th.head");
+    if (th && th.dataset.i !== undefined) {
+      var idx = +th.dataset.i;
+      state.unlock[idx] = (state.unlock[idx] + 1) % 3;
+      save();
+      build();
+      return;
+    }
+    var cell = e.target.closest(".cell");
+    if (!cell) return;
+    var i = +cell.dataset.i;
+    if (i < 0) return;
+    var ul = hitUL(cell, e);
+    var j = +cell.dataset.j;
+    var m = ul ? state.marks[i].n : state.marks[i].t;
+    m[j] = (m[j] + 1) % 3;
+    save();
+    build();
+  });
+
+  document.getElementById("wrap").addEventListener("contextmenu", function (e) {
+    var cell = e.target.closest(".cell");
+    if (!cell) return;
+    e.preventDefault();
+    var i = +cell.dataset.i;
+    if (i < 0) return;
+    var ul = hitUL(cell, e);
+    var j = +cell.dataset.j;
+    var m = ul ? state.marks[i].n : state.marks[i].t;
+    m[j] = (m[j] + 2) % 3;
+    save();
+    build();
+  });
+
+  document.getElementById("btnFile").onclick = function () {
+    document.getElementById("fileInput").click();
+  };
+
+  document.getElementById("fileInput").onchange = function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var s = parseIsaacSave(new Uint8Array(reader.result));
+        if (!s) throw 0;
+        state = s;
+        save();
+        build();
+        alert("已从存档文件自动分析并导入：\n" + file.name);
+      } catch (err) {
+        alert("无法解析该存档文件");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    this.value = "";
+  };
+
+  document.getElementById("btnExport").onclick = function () {
+    document.getElementById("io").value = JSON.stringify(state);
+  };
+
+  document.getElementById("btnImport").onclick = function () {
+    try {
+      var s = normalize(JSON.parse(document.getElementById("io").value));
+      if (!s) throw 0;
+      state = s;
+      save();
+      build();
+      document.getElementById("io").value = "";
+      alert("导入成功");
+    } catch (err) {
+      alert("数据格式错误");
+    }
+  };
+
+  document.getElementById("btnReset").onclick = function () {
+    if (confirm("确定要清空所有标记吗？")) {
+      state = initState();
+      save();
+      build();
+    }
+  };
+
+  var state = load();
+  build();
+})();
+</script>
+</body>
+</html>
