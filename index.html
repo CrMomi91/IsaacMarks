@@ -16,7 +16,22 @@ body {
   font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
   text-align: center;
 }
-.note { font-size: 12px; color: #888; margin-bottom: 8px; }
+h1 { font-size: 30px; margin: 0 0 4px; }
+.note { font-size: 12px; color: #888; margin: 0 0 8px; }
+#toast {
+  position: fixed;
+  background: rgba(0,0,0,0.82);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  z-index: 9999;
+  display: none;
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 90vw;
+}
 .stats { font-size: 13px; color: #444; margin-bottom: 12px; }
 .table-wrap {
   display: inline-block;
@@ -83,6 +98,7 @@ td.spacer-row { border: none; background: #fff; height: 10px; }
   background: linear-gradient(135deg, var(--ul) 49.6%, var(--ln, #999) 50%, var(--ln, #999) 50.4%, var(--lr) 50.4%);
   cursor: pointer;
 }
+.img-export { margin: 12px auto 0; }
 .panel { margin: 16px auto 0; font-size: 13px; display: block; width: fit-content; text-align: left; }
 .panel summary { cursor: pointer; color: #555; }
 .panel textarea {
@@ -114,10 +130,14 @@ button.danger { background: #f3dcdc; color: #a11; }
 </style>
 </head>
 <body>
-<h1>以撒的结合 · 通关标记登记</h1>
-<div class="note">可以通过左右键点击来切换角色解锁与标记达成情况。</div>
+<h1>以撒的结合通关标记登记表</h1>
+<div class="note">可通过左右键点击格子以切换角色解锁与标记达成情况。</div>
 <div class="stats" id="stats"></div>
 <div class="table-wrap" id="wrap"></div>
+<div class="img-export">
+  <button id="btnCopyImg">复制图片</button>
+  <button id="btnSaveImg">保存图片</button>
+</div>
 <details class="panel">
   <summary>数据导入 / 导出 / 重置</summary>
   <textarea id="io" placeholder="点击“导出到文本框”将数据粘贴到此处保存，需要时再点“从文本框导入”"></textarea>
@@ -478,6 +498,127 @@ button.danger { background: #f3dcdc; color: #a11; }
     updateScrollbar();
   }
 
+  function renderTableImage() {
+    var cell = 44, rhw = 110, sp = 10;
+    var W = rhw + N * cell + sp + cell;
+    var H = cell + M * cell + sp + cell;
+    var scale = 2;
+    var canvas = document.createElement("canvas");
+    canvas.width = W * scale;
+    canvas.height = H * scale;
+    var ctx = canvas.getContext("2d");
+    ctx.scale(scale, scale);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    var FONT = '"Microsoft YaHei", "PingFang SC", sans-serif';
+    var SHADOW_COLOR = "#cfc9bd";
+    var BORDER = "#c4bfb3";
+    var rowHeadBg = "#e8e4da";
+    var headBg = "#f4f1ea";
+
+    var colX = function (i) { return rhw + i * cell; };
+    var spacerX = rhw + N * cell;
+    var allX = rhw + N * cell + sp;
+    var rowY = function (j) { return cell + j * cell; };
+    var spacerY = cell + M * cell;
+    var allY = cell + M * cell + sp;
+
+    function rect(x, y, w, h, fill) { ctx.fillStyle = fill; ctx.fillRect(x, y, w, h); }
+    function diag(x, y, ul, lr) {
+      ctx.fillStyle = COL[ul];
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + cell, y); ctx.lineTo(x, y + cell); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = COL[lr];
+      ctx.beginPath(); ctx.moveTo(x + cell, y); ctx.lineTo(x + cell, y + cell); ctx.lineTo(x, y + cell); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#999"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x + cell, y); ctx.lineTo(x, y + cell); ctx.stroke();
+    }
+    function putText(s, cx, cy, color, shadow, font, fs) {
+      ctx.font = font;
+      var base = cy + fs * 0.35;
+      var dx = shadow ? -2 : 0, dy = shadow ? -2 : 0;
+      if (shadow) { ctx.fillStyle = SHADOW_COLOR; ctx.fillText(s, cx + dx + 4, base + dy + 4); }
+      ctx.fillStyle = color;
+      ctx.fillText(s, cx + dx, base + dy);
+    }
+    function headText(name, x, y, color, shadow) {
+      var cx = x + cell / 2;
+      var f = "bold 12px " + FONT;
+      if (name.length >= 4) {
+        var lh = 12 * 1.2;
+        var top = (cell - lh * 2) / 2;
+        putText(name.slice(0, 2), cx, y + top + lh / 2, color, shadow, f, 12);
+        putText(name.slice(2), cx, y + top + lh * 1.5, color, shadow, f, 12);
+      } else {
+        putText(name, cx, y + cell / 2, color, shadow, f, 12);
+      }
+    }
+    function rowHead(txt, y) {
+      ctx.font = "bold 13px " + FONT;
+      ctx.fillStyle = "#222";
+      ctx.fillText(txt, rhw / 2, y + cell / 2 + 13 * 0.35);
+    }
+    function drawGrid() {
+      var vxs = [0];
+      for (var v = 0; v <= N; v++) vxs.push(rhw + v * cell);
+      vxs.push(allX, allX + cell);
+      var hys = [0];
+      for (var h = 0; h <= M; h++) hys.push(cell + h * cell);
+      hys.push(allY, allY + cell);
+      ctx.strokeStyle = BORDER;
+      ctx.lineWidth = 1;
+      for (var a = 0; a < vxs.length; a++) {
+        var x = vxs[a] + 0.5;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, spacerY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, allY); ctx.lineTo(x, H); ctx.stroke();
+      }
+      for (var b = 0; b < hys.length; b++) {
+        var y = hys[b] + 0.5;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(spacerX, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(allX, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+    }
+
+    rect(0, 0, W, H, "#fff");
+
+    rect(0, 0, rhw, cell, rowHeadBg);
+    rowHead("标记", 0);
+    var uAll = aggUnlockAll();
+    for (var i = 0; i < N; i++) {
+      var x = colX(i);
+      rect(x, 0, cell, cell, headBg);
+      headText(CHARS[i][0], x, 0, UNLOCK_COL[state.unlock[i]], state.unlock[i] === 2);
+    }
+    rect(spacerX, 0, sp, cell, "#fff");
+    rect(allX, 0, cell, cell, headBg);
+    headText("全部", allX, 0, UNLOCK_COL[uAll], uAll === 2);
+
+    for (var j = 0; j < M; j++) {
+      var y = rowY(j);
+      rect(0, y, rhw, cell, rowHeadBg);
+      rowHead(MARKS[j], y);
+      for (i = 0; i < N; i++) {
+        diag(colX(i), y, state.marks[i].n[j], state.marks[i].t[j]);
+      }
+      rect(spacerX, y, sp, cell, "#fff");
+      diag(allX, y, aggAllN(j), aggAllT(j));
+    }
+
+    rect(0, spacerY, W, sp, "#fff");
+
+    var ya = allY;
+    rect(0, ya, rhw, cell, rowHeadBg);
+    rowHead("全部", ya);
+    for (i = 0; i < N; i++) {
+      diag(colX(i), ya, agg(state.marks[i].n), agg(state.marks[i].t));
+    }
+    rect(spacerX, ya, sp, cell, "#fff");
+    diag(allX, ya, aggAllN(-1), aggAllT(-1));
+
+    drawGrid();
+
+    return canvas;
+  }
+
   function aggAllN(j) {
     var arr = [];
     for (var i = 0; i < N; i++) arr.push(j >= 0 ? state.marks[i].n[j] : agg(state.marks[i].n));
@@ -551,8 +692,28 @@ button.danger { background: #f3dcdc; color: #a11; }
     document.getElementById("fileInput").click();
   };
 
-  function copyText(text) {
-    function ok() { alert("已复制路径：\n" + text); }
+  var toastEl = null;
+
+  function showToast(msg, anchor) {
+    if (!toastEl) {
+      toastEl = document.createElement("div");
+      toastEl.id = "toast";
+      document.body.appendChild(toastEl);
+    }
+    toastEl.textContent = msg;
+    toastEl.style.display = "block";
+    if (anchor) {
+      var r = anchor.getBoundingClientRect();
+      toastEl.style.left = (r.left + r.width / 2) + "px";
+      toastEl.style.top = (r.top - 8) + "px";
+      toastEl.style.transform = "translate(-50%, -100%)";
+    }
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { toastEl.style.display = "none"; }, 2000);
+  }
+
+  function copyText(text, anchor) {
+    function ok() { showToast("已复制路径", anchor); }
     function fallback() {
       var ta = document.createElement("textarea");
       ta.value = text;
@@ -561,7 +722,7 @@ button.danger { background: #f3dcdc; color: #a11; }
       document.body.appendChild(ta);
       ta.select();
       try { document.execCommand("copy"); ok(); }
-      catch (e) { alert("复制失败，请手动复制：\n" + text); }
+      catch (e) { showToast("复制失败，请手动复制", anchor); }
       document.body.removeChild(ta);
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -574,13 +735,14 @@ button.danger { background: #f3dcdc; color: #a11; }
   var copyLinks = document.querySelectorAll(".copy-link");
   for (var cl = 0; cl < copyLinks.length; cl++) {
     copyLinks[cl].addEventListener("click", function () {
-      copyText(this.getAttribute("data-copy"));
+      copyText(this.getAttribute("data-copy"), this);
     });
   }
 
   document.getElementById("fileInput").onchange = function () {
     var file = this.files && this.files[0];
     if (!file) return;
+    var btn = document.getElementById("btnFile");
     var reader = new FileReader();
     reader.onload = function () {
       try {
@@ -589,9 +751,9 @@ button.danger { background: #f3dcdc; color: #a11; }
         state = s;
         save();
         build();
-        alert("已从存档文件自动分析并导入：\n" + file.name);
+        showToast("已导入：" + file.name, btn);
       } catch (err) {
-        alert("无法解析该存档文件");
+        showToast("无法解析该存档文件", btn);
       }
     };
     reader.readAsArrayBuffer(file);
@@ -603,6 +765,7 @@ button.danger { background: #f3dcdc; color: #a11; }
   };
 
   document.getElementById("btnImport").onclick = function () {
+    var btn = this;
     try {
       var s = normalize(JSON.parse(document.getElementById("io").value));
       if (!s) throw 0;
@@ -610,9 +773,9 @@ button.danger { background: #f3dcdc; color: #a11; }
       save();
       build();
       document.getElementById("io").value = "";
-      alert("导入成功");
+      showToast("导入成功", btn);
     } catch (err) {
-      alert("数据格式错误");
+      showToast("数据格式错误", btn);
     }
   };
 
@@ -622,6 +785,33 @@ button.danger { background: #f3dcdc; color: #a11; }
       save();
       build();
     }
+  };
+
+  document.getElementById("btnCopyImg").onclick = function () {
+    var btn = this;
+    var canvas = renderTableImage();
+    if (typeof canvas.toBlob !== "function") { showToast("当前浏览器不支持导出图片", btn); return; }
+    canvas.toBlob(function (blob) {
+      if (!navigator.clipboard || !window.ClipboardItem) { showToast("当前浏览器不支持复制图片，请改用保存", btn); return; }
+      navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).then(
+        function () { showToast("已复制图片到剪贴板", btn); },
+        function () { showToast("复制失败，请改用保存", btn); }
+      );
+    });
+  };
+
+  document.getElementById("btnSaveImg").onclick = function () {
+    var canvas = renderTableImage();
+    canvas.toBlob(function (blob) {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "以撒通关标记.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
   };
 
   var state = load();
