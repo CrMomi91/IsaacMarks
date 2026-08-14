@@ -145,7 +145,7 @@ button.danger { background: #f3dcdc; color: #a11; }
   <div class="path-tip">
     可在文件名位置输入此路径以快速跳转到存档文件夹：
     <span class="copy-link" data-copy="%USERPROFILE%\Documents\My Games\Binding of Isaac Repentance">忏悔</span> /
-    <span class="copy-link" data-copy="C:\Users\28671\Documents\My Games\Binding of Isaac Repentance+\save_backups">忏悔+</span>
+    <span class="copy-link" data-copy="%USERPROFILE%\Documents\My Games\Binding of Isaac Repentance+\save_backups">忏悔+</span>
   </div>
   <div class="btnrow">
     <button id="btnFile">导入存档文件(.dat)</button>
@@ -676,9 +676,17 @@ button.danger { background: #f3dcdc; color: #a11; }
   });
 
   document.getElementById("wrap").addEventListener("contextmenu", function (e) {
+    e.preventDefault();
+    var th = e.target.closest("th.head");
+    if (th && th.dataset.i !== undefined) {
+      var idx = +th.dataset.i;
+      state.unlock[idx] = (state.unlock[idx] + 2) % 3;
+      save();
+      build();
+      return;
+    }
     var cell = e.target.closest(".cell");
     if (!cell) return;
-    e.preventDefault();
     var i = +cell.dataset.i;
     if (i < 0) return;
     var ul = hitUL(cell, e);
