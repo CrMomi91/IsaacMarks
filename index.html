@@ -128,16 +128,56 @@ button {
   font-size: 13px;
 }
 button.danger { background: #f3dcdc; color: #a11; }
+.tabs { margin: 8px 0 4px; }
+.tab {
+  padding: 6px 22px; cursor: pointer; border: 1px solid #999;
+  background: #e8e4da; border-radius: 4px; font-size: 14px; margin: 0 4px;
+}
+.tab.active { background: #3b6098; color: #fff; border-color: #3b6098; }
+.rec-stats { font-size: 13px; color: #444; margin: 8px auto; text-align: left; max-width: 1100px; line-height: 1.7; }
+.rec-layout { display: flex; gap: 12px; max-width: 1100px; margin: 0 auto; align-items: flex-start; text-align: left; }
+.rec-filters { flex: 0 0 170px; background: #fff; border: 1px solid #c4bfb3; border-radius: 6px; padding: 10px; font-size: 12px; }
+.rec-filters h4 { font-size: 13px; margin: 8px 0 4px; color: #2a5db0; }
+.rec-filters h4:first-child { margin-top: 0; }
+.rec-filters label { display: flex; align-items: center; gap: 6px; margin: 3px 0; cursor: pointer; }
+.rec-filters input { margin: 0; }
+.rec-list-wrap { flex: 1 1 auto; background: #fff; border: 1px solid #c4bfb3; border-radius: 6px; padding: 8px; min-height: 400px; max-height: 72vh; overflow-y: auto; }
+.rec-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 13px; }
+.rec-item:hover { background: #f5f2ea; }
+.rec-item.selected { background: #e8e4da; }
+.rec-item.locked { color: #a11; }
+.rec-item .rec-name { flex: 1 1 auto; }
+.rec-item .rec-meta { color: #888; font-size: 11px; }
+.rec-item .rec-val { font-weight: bold; white-space: nowrap; }
+.rec-detail { flex: 0 0 300px; background: #fff; border: 1px solid #c4bfb3; border-radius: 6px; padding: 12px; font-size: 12px; line-height: 1.6; }
+.rec-detail h3 { font-size: 15px; margin: 0 0 6px; }
+.rec-detail .lbl { color: #2a5db0; font-weight: bold; margin-top: 10px; }
+.rec-tag { display: inline-block; background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; padding: 1px 6px; margin-right: 4px; font-size: 11px; color: #555; }
+.rec-icon { width: 24px; height: 24px; flex: 0 0 24px; image-rendering: pixelated; }
 </style>
 </head>
 <body>
 <h1>以撒的结合通关标记登记表</h1>
-<div class="note">可通过左右键点击格子以切换角色解锁与标记达成情况。</div>
+<div class="tabs">
+  <button id="tab-marks" class="tab active">通关标记</button>
+  <button id="tab-recommend" class="tab">解锁推荐</button>
+</div>
+<div id="view-marks">
+<div class="note">可通过左右键点击格子以切换角色解锁与标记达成情况。点击上方「解锁推荐」标签可查看下一步解锁建议（含道具 / 成就图标）。</div>
 <div class="stats" id="stats"></div>
 <div class="table-wrap" id="wrap"></div>
 <div class="img-export">
   <button id="btnCopyImg">复制图片</button>
   <button id="btnSaveImg">保存图片</button>
+</div>
+</div>
+<div id="view-recommend" style="display:none">
+  <div class="rec-stats" id="recStats"></div>
+  <div class="rec-layout">
+    <div class="rec-filters" id="recFilters"></div>
+    <div class="rec-list-wrap"><div class="rec-list" id="recList"></div></div>
+    <div class="rec-detail" id="recDetail"></div>
+  </div>
 </div>
 <details class="panel">
   <summary>数据导入 / 导出 / 重置</summary>
@@ -155,6 +195,8 @@ button.danger { background: #f3dcdc; color: #a11; }
   </div>
   <input type="file" id="fileInput" accept=".dat" style="display:none">
 </details>
+<script src="data.js"></script>
+<script src="recommend.js"></script>
 <script>
 (function () {
   "use strict";
@@ -196,10 +238,11 @@ button.danger { background: #f3dcdc; color: #a11; }
 
     if (bytes.length < 0x100) return null;
 
-    var ofs = 0x14, sd = [0, 0, 0], el = [1, 4, 4, 1, 1, 1, 1, 4, 4, 1], so = [];
+    var ofs = 0x14, sd = [0, 0, 0], el = [1, 4, 4, 1, 1, 1, 1, 4, 4, 1], so = [], sec0Count = 0;
     for (var s = 0; s < el.length; s++) {
       for (var j = 0; j < 3; j++) { sd[j] = u16(ofs); ofs += 4; }
       so[s] = ofs;
+      if (s === 0) sec0Count = sd[2];
       ofs += sd[2] * el[s];
     }
     var sec0 = so[0], sec1 = so[1];
@@ -259,13 +302,20 @@ button.danger { background: #f3dcdc; color: #a11; }
       }
       marks.push({ n: n, t: t });
     }
-    return { unlock: unlock, marks: marks };
+
+    var achievements = {};
+    var achCount = Math.min(sec0Count, 641);
+    for (var a = 1; a <= achCount; a++) {
+      if (bytes[sec0 + a] !== 0) achievements[a] = true;
+    }
+    return { unlock: unlock, marks: marks, achievements: achievements };
   }
 
   function initState() {
     return {
       unlock: new Array(N).fill(0),
-      marks: CHARS.map(function () { return { n: new Array(M).fill(0), t: new Array(M).fill(0) }; })
+      marks: CHARS.map(function () { return { n: new Array(M).fill(0), t: new Array(M).fill(0) }; }),
+      achievements: {}
     };
   }
 
@@ -277,6 +327,7 @@ button.danger { background: #f3dcdc; color: #a11; }
       if (typeof u !== "number") u = 0;
       s.unlock[i] = Math.max(0, Math.min(2, Math.round(u)));
     }
+    if (typeof s.achievements !== "object" || s.achievements === null || Array.isArray(s.achievements)) s.achievements = {};
     return s;
   }
 
@@ -760,6 +811,7 @@ button.danger { background: #f3dcdc; color: #a11; }
         state = s;
         save();
         build();
+        recRefresh();
         showToast("已导入：" + file.name, btn);
       } catch (err) {
         showToast("无法解析该存档文件", btn);
@@ -781,6 +833,7 @@ button.danger { background: #f3dcdc; color: #a11; }
       state = s;
       save();
       build();
+      recRefresh();
       document.getElementById("io").value = "";
       showToast("导入成功", btn);
     } catch (err) {
@@ -793,6 +846,7 @@ button.danger { background: #f3dcdc; color: #a11; }
       state = initState();
       save();
       build();
+      recRefresh();
     }
   };
 
@@ -823,8 +877,215 @@ button.danger { background: #f3dcdc; color: #a11; }
     });
   };
 
+  // ===== 解锁推荐 =====
+  var recEngine = null;
+  var recCandidates = [];
+  var recSelected = -1;
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function recInit() {
+    if (window.ProgressEngine && window.PROGRESS_DATA) {
+      recEngine = window.ProgressEngine.createEngine();
+      recEngine.state.setUnlocked(state.achievements || {});
+    }
+  }
+
+  function recRefresh() {
+    if (!recEngine) return;
+    recEngine.state.setUnlocked(state.achievements || {});
+    recCandidates = recEngine.recommend.GetCandidates();
+    recSelected = recCandidates.length ? 0 : -1;
+    recRenderFilters();
+    recRenderList();
+    recRenderDetail();
+  }
+
+  function recRenderFilters() {
+    var el = document.getElementById("recFilters");
+    if (!recEngine) return;
+    var st = recEngine.state;
+    var html = "<h4>难度</h4>";
+    for (var d = 1; d <= 6; d++) {
+      html += "<label><input type='checkbox' data-diff='" + d + "'" + (st.IsDifficultyEnabled(d) ? " checked" : "") + "> " + recEngine.Config.DifficultyNames[d] + "</label>";
+    }
+    html += "<h4>品质（0级-4级）</h4>";
+    for (var q = 0; q <= 4; q++) {
+      html += "<label><input type='checkbox' data-q='" + q + "'" + (st.IsQualityEnabled(q) ? " checked" : "") + "> " + q + "级</label>";
+    }
+    html += "<h4>奖励类型</h4>";
+    html += "<label><input type='checkbox' data-trinket='1'" + (st.IsTrinketsEnabled() ? " checked" : "") + "> 饰品</label>";
+    html += "<label><input type='checkbox' data-nonitem='1'" + (st.IsNonItemsEnabled() ? " checked" : "") + "> 卡牌/符文/药丸/功能</label>";
+    html += "<h4>其他</h4>";
+    html += "<label><input type='checkbox' data-locked='1'" + (st.IsShowLockedEnabled() ? " checked" : "") + "> 显示锁定项</label>";
+    el.innerHTML = html;
+    var inputs = el.querySelectorAll("input");
+    for (var i = 0; i < inputs.length; i++) {
+      inputs[i].onchange = function (e) {
+        var inp = e.target;
+        var s2 = recEngine.state;
+        if (inp.dataset.diff) s2.SetDifficultyEnabled(+inp.dataset.diff, inp.checked);
+        else if (inp.dataset.q !== undefined) s2.SetQualityEnabled(+inp.dataset.q, inp.checked);
+        else if (inp.dataset.trinket !== undefined) { s2.settings.enabledTrinkets = inp.checked; }
+        else if (inp.dataset.nonitem !== undefined) { s2.settings.enabledNonItems = inp.checked; }
+        else if (inp.dataset.locked !== undefined) s2.settings.showLocked = inp.checked;
+        s2.settingsVersion++;
+        recRefresh();
+      };
+    }
+  }
+
+  function cssStyle(obj) {
+    var s = "";
+    for (var k in obj) {
+      var prop = k.replace(/([A-Z])/g, "-$1").toLowerCase();
+      s += prop + ":" + obj[k] + ";";
+    }
+    return s;
+  }
+
+  function recIconHtml(c) {
+    if (!window.ProgressEngine) return "";
+    var kind = null, id = null;
+    var t = c.tasks && c.tasks.length ? c.tasks[c.tasks.length - 1] : null;
+    if (t && t.rewards && t.rewards.length) {
+      kind = t.rewards[0].kind;
+      id = t.rewards[0].id;
+    }
+    if (kind && id != null && window.ProgressEngine.iconStyle) {
+      var style = window.ProgressEngine.iconStyle(kind, id, 22);
+      if (style) return "<span class='rec-icon' style='" + cssStyle(style) + "flex:0 0 auto;'></span>";
+    }
+    // 无道具图标时（功能解锁等），用成就图标
+    var ach = null;
+    if (c.tasks && c.tasks.length) {
+      for (var i = c.tasks.length - 1; i >= 0; i--) {
+        if (c.tasks[i].achievement) { ach = c.tasks[i].achievement; break; }
+      }
+    }
+    if (ach && window.ProgressEngine.achievementIconStyle) {
+      var ast = window.ProgressEngine.achievementIconStyle(ach, 22);
+      if (ast) return "<span class='rec-icon' style='" + cssStyle(ast) + "flex:0 0 auto;'></span>";
+    }
+    return "";
+  }
+
+  function recRenderList() {
+    var el = document.getElementById("recList");
+    if (!recEngine) { el.innerHTML = "<div class='note'>推荐引擎未加载。</div>"; return; }
+    var stats = document.getElementById("recStats");
+    var counts = recEngine.recommend.GetTaskCounts(null);
+    var poolAvg = recEngine.pool.GetAverage();
+    var achCount = Object.keys(state.achievements || {}).length;
+    stats.innerHTML =
+      "当前加权池分：<b>" + poolAvg.toFixed(2) + "</b> / 10　|　匹配解锁：<b>" + counts[0] + "</b> 个现在可解锁 / <b>" + counts[1] + "</b> 个剩余　|　" +
+      (achCount ? "已识别成就：<b>" + achCount + "</b> 个" : "<span style='color:#a11'>未导入存档，请先在下方「数据导入」导入 .dat 文件</span>");
+    var html = "";
+    var limit = Math.min(recCandidates.length, 120);
+    for (var i = 0; i < limit; i++) {
+      var c = recCandidates[i];
+      var qTag = "";
+      if (c.rewardKind === "collectible") {
+        if (c.staticQuality != null && c.staticQuality >= 0) qTag = c.staticQuality + "级";
+      } else if (c.rewardKind === "trinket") {
+        qTag = "饰品";
+      } else if (c.rewardKind === "card") {
+        qTag = "卡牌";
+      } else if (c.rewardKind === "rune") {
+        qTag = "符文";
+      } else if (c.rewardKind === "pill") {
+        qTag = "药丸";
+      } else if (c.rewardKind === "feature") {
+        qTag = "功能";
+      }
+      var cls = "rec-item" + (i === recSelected ? " selected" : "") + (!c.available ? " locked" : "");
+      html += "<div class='" + cls + "' data-i='" + i + "'>" +
+        recIconHtml(c) +
+        "<span class='rec-name'>" + (i + 1) + ". " + escapeHtml(c.label) + (c.available ? "" : " [锁定]") + "</span>" +
+        "<span class='rec-meta'>" + qTag + " " + recEngine.Config.DifficultyNames[c.difficulty] + "</span>" +
+        "<span class='rec-val'>" + c.value.toFixed(1) + "</span></div>";
+    }
+    el.innerHTML = html || "<div class='note'>无匹配推荐，可调整过滤器或导入存档。</div>";
+    var items = el.querySelectorAll(".rec-item");
+    for (var j = 0; j < items.length; j++) {
+      items[j].onclick = (function (idx) {
+        return function () { recSelected = idx; recRenderList(); recRenderDetail(); };
+      })(j);
+    }
+  }
+
+  function achievementIconHtml(c) {
+    if (!window.ProgressEngine || !window.ProgressEngine.achievementIconStyle) return "";
+    var ach = null;
+    if (c.tasks && c.tasks.length) {
+      for (var i = c.tasks.length - 1; i >= 0; i--) {
+        if (c.tasks[i].achievement) { ach = c.tasks[i].achievement; break; }
+      }
+    }
+    if (!ach) return "";
+    var style = window.ProgressEngine.achievementIconStyle(ach, 32);
+    if (!style) return "";
+    return "<span class='rec-icon' style='" + cssStyle(style) + "flex:0 0 auto;'></span>";
+  }
+
+  function recRenderDetail() {
+    var el = document.getElementById("recDetail");
+    if (!recEngine || recSelected < 0 || recSelected >= recCandidates.length) { el.innerHTML = ""; return; }
+    var c = recCandidates[recSelected];
+    var html = "<div style='display:flex;align-items:center;gap:8px;margin-bottom:4px;'>" + achievementIconHtml(c) + "<h3 style='margin:0;'>" + escapeHtml(c.label) + "</h3></div>";
+    if (c.kind === "route") {
+      html += "<div class='lbl'>你将解锁</div>";
+      var rr = c.routeRewards || [];
+      for (var i = 0; i < rr.length; i++) {
+        html += "<div>" + escapeHtml(rr[i].text) + "　<span class='rec-tag'>" + rr[i].value.toFixed(1) + "/10</span></div>";
+      }
+    } else {
+      html += "<div class='lbl'>奖励</div><div>" + escapeHtml(c.reward) + "</div>";
+    }
+    html += "<div class='lbl'>如何解锁</div><div>" + escapeHtml(c.requirement) + "</div>";
+    if (!c.available) {
+      html += "<div class='lbl' style='color:#a11'>缺少前置</div><div>" + (c.missingPrereqs && c.missingPrereqs.length ? escapeHtml(c.missingPrereqs.join("、")) : "一个或多个前置未完成") + "</div>";
+    }
+    html += "<div class='lbl'>评分</div>";
+    html += "<div>价值 " + c.value.toFixed(1) + "/10　难度 " + recEngine.Config.DifficultyNames[c.difficulty] + "</div>";
+    if (c.valueBasisReward) {
+      html += "<div>价值来源：" + (c.valueBasisKind === "character" ? "最佳角色道具 " : "最佳挑战奖励 ") + escapeHtml(c.valueBasisReward) + "</div>";
+    }
+    if (c.score != null) html += "<div>优先分 " + c.score.toFixed(2) + "（难度已折算）</div>";
+    if (c.poolImpact) {
+      var own = c.poolImpact.ownedBaselineCount > 0;
+      var lbl = c.rewardKind === "trinket" ? (own ? "对比已拥有饰品平均" : "对比饰品基线") : (own ? "对比已拥有同层平均" : "对比层级基线");
+      html += "<div>" + lbl + "：" + (c.poolImpact.tierLiftAverage >= 0 ? "+" : "") + c.poolImpact.tierLiftAverage.toFixed(2) + "</div>";
+      html += "<div>池分 " + c.poolImpact.before.toFixed(2) + " → " + c.poolImpact.after.toFixed(2) + "（" + (c.poolImpact.delta >= 0 ? "+" : "") + c.poolImpact.delta.toFixed(3) + "）</div>";
+    }
+    el.innerHTML = html;
+  }
+
+  document.getElementById("tab-marks").onclick = function () {
+    document.getElementById("tab-marks").classList.add("active");
+    document.getElementById("tab-recommend").classList.remove("active");
+    document.getElementById("view-marks").style.display = "";
+    document.getElementById("view-recommend").style.display = "none";
+  };
+  document.getElementById("tab-recommend").onclick = function () {
+    document.getElementById("tab-recommend").classList.add("active");
+    document.getElementById("tab-marks").classList.remove("active");
+    document.getElementById("view-marks").style.display = "none";
+    document.getElementById("view-recommend").style.display = "";
+    recRefresh();
+  };
+
   var state = load();
   build();
+  recInit();
+  recRefresh();
+
+  // 支持 URL hash：#recommend 直接打开推荐标签
+  if (location.hash === "#recommend") {
+    document.getElementById("tab-recommend").onclick();
+  }
 })();
 </script>
 </body>
