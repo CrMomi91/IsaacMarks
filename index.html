@@ -151,15 +151,37 @@ button.danger { background: #f3dcdc; color: #a11; }
 .rec-item .rec-val { font-weight: bold; white-space: nowrap; }
 .rec-detail { flex: 0 0 300px; background: #fff; border: 1px solid #c4bfb3; border-radius: 6px; padding: 12px; font-size: 12px; line-height: 1.6; }
 .rec-detail h3 { font-size: 15px; margin: 0 0 6px; }
+.rec-detail h3 a { text-decoration: none; color: #2a5db0; }
+.rec-detail h3 a:hover { color: #17448f; }
 .rec-detail .lbl { color: #2a5db0; font-weight: bold; margin-top: 10px; }
 .rec-tag { display: inline-block; background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; padding: 1px 6px; margin-right: 4px; font-size: 11px; color: #555; }
 .rec-icon { width: 24px; height: 24px; flex: 0 0 24px; image-rendering: pixelated; }
+.challenge-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; max-width: 920px; margin: 0 auto 8px; }
+.challenge-seg-title { max-width: 920px; margin: 12px auto 6px; text-align: left; font-size: 14px; font-weight: bold; color: #2a5db0; }
+.challenge-seg-title:first-child { margin-top: 2px; }
+.challenge-cell {
+  position: relative; padding: 8px; cursor: pointer; border: 1px solid #c4bfb3;
+  border-radius: 5px; background: #fff; font-size: 12px; line-height: 1.3;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+}
+.challenge-cell .cbody { flex: 0 0 auto; text-align: left; word-break: break-all; min-width: 0; }
+.challenge-cell .rec-icon { flex: 0 0 auto; }
+.challenge-cell .cnum { display: block; font-size: 11px; color: #999; margin-bottom: 2px; }
+.challenge-cell .cname { display: block; font-weight: bold; }
+.challenge-cell .creward { display: block; font-size: 11px; color: #888; margin-top: 3px; }
+.challenge-cell.st0 { background: #e5e1d8; color: #999; }
+.challenge-cell.st1 { background: #fff; color: #222; }
+.challenge-cell.st2 { background: #d33131; color: #fff; border-color: #a81f1f; }
+.challenge-cell.st2 .cnum { color: #f0d0d0; }
+.challenge-cell.st2 .creward { color: #f7d6d6; }
+.challenge-cell.st0 .creward { color: #b0aaa0; }
 </style>
 </head>
 <body>
 <h1>以撒的结合通关标记登记表</h1>
 <div class="tabs">
   <button id="tab-marks" class="tab active">通关标记</button>
+  <button id="tab-challenges" class="tab">挑战</button>
   <button id="tab-recommend" class="tab">解锁推荐</button>
 </div>
 <div id="view-marks">
@@ -170,6 +192,11 @@ button.danger { background: #f3dcdc; color: #a11; }
   <button id="btnCopyImg">复制图片</button>
   <button id="btnSaveImg">保存图片</button>
 </div>
+</div>
+<div id="view-challenges" style="display:none">
+  <div class="note">点击格子切换挑战状态：未解锁 → 已解锁未通过 → 已通过。</div>
+  <div class="stats" id="challengeStats"></div>
+  <div id="challengeGrid"></div>
 </div>
 <div id="view-recommend" style="display:none">
   <div class="rec-stats" id="recStats"></div>
@@ -221,6 +248,62 @@ button.danger { background: #f3dcdc; color: #a11; }
     ["雅各和以扫", "堕化雅各和以扫"]
   ];
   var MARKS = ["妈妈的心", "Boss Rush", "死寂", "以撒", "撒旦", "？？？", "羔羊", "超级撒旦", "精神错乱", "母亲", "祸兽", "贪婪模式"];
+  // 挑战数据：unlock 为解锁门成就编号（0=默认解锁），reward 为通关奖励，ach 为通关奖励对应的成就编号
+  var CHALLENGES = [
+    { name: "漆黑一片", unlock: 0, reward: "冰雹符文", ach: 89 },
+    { name: "格调高雅", unlock: 0, reward: "收获符文", ach: 90 },
+    { name: "头部创伤", unlock: 0, reward: "马骑符文", ach: 91 },
+    { name: "黑暗降临", unlock: 157, reward: "朝夕符文", ach: 92 },
+    { name: "坦克", unlock: 158, reward: "诸神符文", ach: 93 },
+    { name: "太阳系", unlock: 159, reward: "签筒符文", ach: 94 },
+    { name: "自杀之王", unlock: 160, reward: "桦木符文", ach: 95 },
+    { name: "好奇害死猫", unlock: 161, reward: "保护符文", ach: 96 },
+    { name: "拆迁办", unlock: 162, reward: "混沌卡", ach: 97 },
+    { name: "诅咒！", unlock: 163, reward: "信用卡", ach: 98 },
+    { name: "玻璃大炮", unlock: 164, reward: "规则卡", ach: 99 },
+    { name: "当生活充满酸意", unlock: 0, reward: "反人类卡", ach: 100 },
+    { name: "豆子！", unlock: 0, reward: "焦灼硬币", ach: 60 },
+    { name: "尽在卡牌中", unlock: 0, reward: "超级食肉男孩死忠粉", ach: 63 },
+    { name: "慢吞吞", unlock: 0, reward: "被吞下的硬币", ach: 101 },
+    { name: "技术宅", unlock: 0, reward: "机器宝宝2.0", ach: 102 },
+    { name: "吐豆人", unlock: 0, reward: "死神之触", ach: 103 },
+    { name: "宿主", unlock: 0, reward: "科技0.5", ach: 104 },
+    { name: "顾家男人", unlock: 165, reward: "史诗胎儿博士", ach: 62 },
+    { name: "返璞归真", unlock: 166, reward: "编号丢失", ach: 105 },
+    { name: "超超超超超大层", unlock: 265, reward: "金心", ach: 224 },
+    { name: "快马加鞭！", unlock: 266, reward: "免费保释卡", ach: 225 },
+    { name: "蓝色炸弹人", unlock: 267, reward: "金炸弹", ach: 226 },
+    { name: "充钱游戏", unlock: 268, reward: "止痛药！ + 上瘾！", ach: 227 },
+    { name: "没心没肺", unlock: 269, reward: "放-松 + ???", ach: 228 },
+    { name: "以撒传说！", unlock: 270, reward: "筹码", ach: 229 },
+    { name: "脑子！", unlock: 271, reward: "饰钉定位器", ach: 230 },
+    { name: "彩虹日！", unlock: 272, reward: "八面骰", ach: 231 },
+    { name: "俄南连击", unlock: 273, reward: "肾结石", ach: 232 },
+    { name: "守护者", unlock: 274, reward: "透明符文 + 空白符文", ach: 233 },
+    { name: "本末倒置", unlock: 277, reward: "拉撒路流血更多！", ach: 331 },
+    { name: "愚人节", unlock: 278, reward: "抹大拉现在持有药丸！", ach: 332 },
+    { name: "宝可萌", unlock: 279, reward: "充能钥匙", ach: 333 },
+    { name: "终极困难", unlock: 280, reward: "参孙感觉健康！", ach: 334 },
+    { name: "乒乓", unlock: 281, reward: "贪婪的胃袋", ach: 335 },
+    { name: "掏粪男孩", unlock: 517, reward: "龌龊之心", ach: 517 },
+    { name: "血腥玛丽", unlock: 508, reward: "巴风特之印", ach: 518 },
+    { name: "圣火洗礼", unlock: 509, reward: "炼狱恶鬼", ach: 519 },
+    { name: "以撒织梦岛", unlock: 510, reward: "英灵剑", ach: 520 },
+    { name: "重影幻视", unlock: 511, reward: "碎掉的眼镜", ach: 521 },
+    { name: "异食游戏", unlock: 512, reward: "冰块", ach: 522 },
+    { name: "烫手山芋", unlock: 513, reward: "VII-战车？", ach: 531 },
+    { name: "大量过牌！", unlock: 514, reward: "VIII-正义？", ach: 532 },
+    { name: "赤键救赎", unlock: 515, reward: "IX-隐者？", ach: 533 },
+    { name: "", unlock: 516, reward: "XIV-节制？", ach: 538 }
+  ];
+  var CN = CHALLENGES.length;
+  // 挑战按 DLC 分段：重生 #1-20，胎衣 #21-30，胎衣+ #31-35，忏悔 #36-45
+  var CHALLENGE_SEGS = [
+    { name: "重生", start: 0, end: 20 },
+    { name: "胎衣", start: 20, end: 30 },
+    { name: "胎衣+", start: 30, end: 35 },
+    { name: "忏悔", start: 35, end: 45 }
+  ];
   var N = CHARS.length;
   var M = MARKS.length;
   var KEY = "isaac-marks-v1";
@@ -245,7 +328,7 @@ button.danger { background: #f3dcdc; color: #a11; }
       if (s === 0) sec0Count = sd[2];
       ofs += sd[2] * el[s];
     }
-    var sec0 = so[0], sec1 = so[1];
+    var sec0 = so[0], sec1 = so[1], sec6 = so[6];
 
     var unlock = [];
     for (var i = 0; i < N; i++) {
@@ -308,14 +391,24 @@ button.danger { background: #f3dcdc; color: #a11; }
     for (var a = 1; a <= achCount; a++) {
       if (bytes[sec0 + a] !== 0) achievements[a] = true;
     }
-    return { unlock: unlock, marks: marks, achievements: achievements };
+
+    // 挑战完成状态：sec6 前 45 字节，非零表示该挑战已通过
+    var challenges = [];
+    for (var ci = 0; ci < CN; ci++) {
+      var completed = sec6 + ci < bytes.length ? (bytes[sec6 + ci] !== 0) : false;
+      var ul = CHALLENGES[ci].unlock;
+      var unlocked = ul === 0 ? true : (achievements[ul] === true);
+      challenges.push(completed ? 2 : (unlocked ? 1 : 0));
+    }
+    return { unlock: unlock, marks: marks, achievements: achievements, challenges: challenges };
   }
 
   function initState() {
     return {
       unlock: new Array(N).fill(0),
       marks: CHARS.map(function () { return { n: new Array(M).fill(0), t: new Array(M).fill(0) }; }),
-      achievements: {}
+      achievements: {},
+      challenges: CHALLENGES.map(function (c) { return c.unlock === 0 ? 1 : 0; })
     };
   }
 
@@ -328,6 +421,15 @@ button.danger { background: #f3dcdc; color: #a11; }
       s.unlock[i] = Math.max(0, Math.min(2, Math.round(u)));
     }
     if (typeof s.achievements !== "object" || s.achievements === null || Array.isArray(s.achievements)) s.achievements = {};
+    if (!Array.isArray(s.challenges)) {
+      s.challenges = new Array(CN).fill(0);
+    } else {
+      for (var c = 0; c < CN; c++) {
+        if (typeof s.challenges[c] !== "number") s.challenges[c] = 0;
+        s.challenges[c] = Math.max(0, Math.min(2, Math.round(s.challenges[c])));
+      }
+      while (s.challenges.length < CN) s.challenges.push(0);
+    }
     return s;
   }
 
@@ -811,6 +913,7 @@ button.danger { background: #f3dcdc; color: #a11; }
         state = s;
         save();
         build();
+        buildChallenges();
         recRefresh();
         showToast("已导入：" + file.name, btn);
       } catch (err) {
@@ -833,6 +936,7 @@ button.danger { background: #f3dcdc; color: #a11; }
       state = s;
       save();
       build();
+      buildChallenges();
       recRefresh();
       document.getElementById("io").value = "";
       showToast("导入成功", btn);
@@ -846,6 +950,7 @@ button.danger { background: #f3dcdc; color: #a11; }
       state = initState();
       save();
       build();
+      buildChallenges();
       recRefresh();
     }
   };
@@ -947,29 +1052,17 @@ button.danger { background: #f3dcdc; color: #a11; }
   }
 
   function recIconHtml(c) {
-    if (!window.ProgressEngine) return "";
-    var kind = null, id = null;
-    var t = c.tasks && c.tasks.length ? c.tasks[c.tasks.length - 1] : null;
-    if (t && t.rewards && t.rewards.length) {
-      kind = t.rewards[0].kind;
-      id = t.rewards[0].id;
-    }
-    if (kind && id != null && window.ProgressEngine.iconStyle) {
-      var style = window.ProgressEngine.iconStyle(kind, id, 22);
-      if (style) return "<span class='rec-icon' style='" + cssStyle(style) + "flex:0 0 auto;'></span>";
-    }
-    // 无道具图标时（功能解锁等），用成就图标
+    if (!window.ProgressEngine || !window.ProgressEngine.achievementIconStyle) return "";
     var ach = null;
     if (c.tasks && c.tasks.length) {
       for (var i = c.tasks.length - 1; i >= 0; i--) {
         if (c.tasks[i].achievement) { ach = c.tasks[i].achievement; break; }
       }
     }
-    if (ach && window.ProgressEngine.achievementIconStyle) {
-      var ast = window.ProgressEngine.achievementIconStyle(ach, 22);
-      if (ast) return "<span class='rec-icon' style='" + cssStyle(ast) + "flex:0 0 auto;'></span>";
-    }
-    return "";
+    if (!ach) return "";
+    var style = window.ProgressEngine.achievementIconStyle(ach, 24);
+    if (!style) return "";
+    return "<span class='rec-icon' style='" + cssStyle(style) + "flex:0 0 auto;'></span>";
   }
 
   function recRenderList() {
@@ -1016,6 +1109,18 @@ button.danger { background: #f3dcdc; color: #a11; }
     }
   }
 
+  function recWikiUrl(c) {
+    var t = c.tasks && c.tasks.length ? c.tasks[c.tasks.length - 1] : null;
+    if (!t) return null;
+    if (t.rewards && t.rewards.length) {
+      var rw = t.rewards[0];
+      var prefix = { collectible: "C", trinket: "T", card: "K", rune: "K", pill: "P" }[rw.kind];
+      if (prefix) return "https://isaac.huijiwiki.com/wiki/" + prefix + rw.id;
+    }
+    if (t.reward) return "https://isaac.huijiwiki.com/wiki/" + encodeURIComponent(t.reward);
+    return null;
+  }
+
   function achievementIconHtml(c) {
     if (!window.ProgressEngine || !window.ProgressEngine.achievementIconStyle) return "";
     var ach = null;
@@ -1034,7 +1139,9 @@ button.danger { background: #f3dcdc; color: #a11; }
     var el = document.getElementById("recDetail");
     if (!recEngine || recSelected < 0 || recSelected >= recCandidates.length) { el.innerHTML = ""; return; }
     var c = recCandidates[recSelected];
-    var html = "<div style='display:flex;align-items:center;gap:8px;margin-bottom:4px;'>" + achievementIconHtml(c) + "<h3 style='margin:0;'>" + escapeHtml(c.label) + "</h3></div>";
+    var wikiUrl = recWikiUrl(c);
+    var titleHtml = wikiUrl ? "<a href='" + wikiUrl + "' target='_blank' rel='noopener'>" + escapeHtml(c.label) + "</a>" : escapeHtml(c.label);
+    var html = "<div style='display:flex;align-items:center;gap:8px;margin-bottom:4px;'>" + achievementIconHtml(c) + "<h3 style='margin:0;'>" + titleHtml + "</h3></div>";
     if (c.kind === "route") {
       html += "<div class='lbl'>你将解锁</div>";
       var rr = c.routeRewards || [];
@@ -1063,28 +1170,79 @@ button.danger { background: #f3dcdc; color: #a11; }
     el.innerHTML = html;
   }
 
-  document.getElementById("tab-marks").onclick = function () {
-    document.getElementById("tab-marks").classList.add("active");
-    document.getElementById("tab-recommend").classList.remove("active");
-    document.getElementById("view-marks").style.display = "";
-    document.getElementById("view-recommend").style.display = "none";
-  };
-  document.getElementById("tab-recommend").onclick = function () {
-    document.getElementById("tab-recommend").classList.add("active");
-    document.getElementById("tab-marks").classList.remove("active");
-    document.getElementById("view-marks").style.display = "none";
-    document.getElementById("view-recommend").style.display = "";
-    recRefresh();
-  };
+  function challengeIconHtml(c) {
+    if (!window.ProgressEngine || !window.ProgressEngine.achievementIconStyle) return "";
+    var style = window.ProgressEngine.achievementIconStyle(c.ach, 44);
+    if (!style) return "";
+    return "<span class='rec-icon' style='" + cssStyle(style) + "flex:0 0 auto;'></span>";
+  }
+
+  function buildChallenges() {
+    var grid = document.getElementById("challengeGrid");
+    var html = "";
+    for (var s = 0; s < CHALLENGE_SEGS.length; s++) {
+      var seg = CHALLENGE_SEGS[s];
+      html += "<div class='challenge-seg-title'>" + seg.name + "</div>";
+      html += "<div class='challenge-grid'>";
+      for (var i = seg.start; i < seg.end; i++) {
+        var st = state.challenges[i] || 0;
+        var name = CHALLENGES[i].name || "？";
+        html += "<div class='challenge-cell st" + st + "' data-i='" + i + "'>" +
+          "<div class='cbody'>" +
+          "<span class='cnum'>#" + (i + 1) + "</span>" +
+          "<span class='cname'>" + name + "</span>" +
+          "<span class='creward'>" + escapeHtml(CHALLENGES[i].reward) + "</span>" +
+          "</div>" +
+          challengeIconHtml(CHALLENGES[i]) +
+          "</div>";
+      }
+      html += "</div>";
+    }
+    grid.innerHTML = html;
+    var cells = grid.querySelectorAll(".challenge-cell");
+    for (var j = 0; j < cells.length; j++) {
+      cells[j].onclick = (function (cell) {
+        return function () {
+          var idx = +cell.getAttribute("data-i");
+          state.challenges[idx] = (state.challenges[idx] + 1) % 3;
+          save();
+          buildChallenges();
+        };
+      })(cells[j]);
+    }
+    var done = 0, unlocked = 0;
+    for (var k = 0; k < CN; k++) {
+      if (state.challenges[k] === 2) done++;
+      if (state.challenges[k] >= 1) unlocked++;
+    }
+    document.getElementById("challengeStats").textContent = "已通过：" + done + " / " + CN + "，已解锁：" + unlocked + " / " + CN;
+  }
+
+  function switchTab(tab) {
+    var tabs = ["marks", "challenges", "recommend"];
+    for (var i = 0; i < tabs.length; i++) {
+      var t = tabs[i];
+      document.getElementById("tab-" + t).classList.toggle("active", t === tab);
+      document.getElementById("view-" + t).style.display = (t === tab) ? "" : "none";
+    }
+    if (tab === "recommend") recRefresh();
+    if (tab === "challenges") buildChallenges();
+  }
+
+  document.getElementById("tab-marks").onclick = function () { switchTab("marks"); };
+  document.getElementById("tab-challenges").onclick = function () { switchTab("challenges"); };
+  document.getElementById("tab-recommend").onclick = function () { switchTab("recommend"); };
 
   var state = load();
   build();
   recInit();
   recRefresh();
 
-  // 支持 URL hash：#recommend 直接打开推荐标签
+  // 支持 URL hash：#recommend / #challenges 直接打开对应标签
   if (location.hash === "#recommend") {
-    document.getElementById("tab-recommend").onclick();
+    switchTab("recommend");
+  } else if (location.hash === "#challenges") {
+    switchTab("challenges");
   }
 })();
 </script>
