@@ -100,7 +100,7 @@ td.spacer-row { border: none; background: #fff; height: 10px; }
   cursor: pointer;
 }
 .img-export { margin: 12px auto 0; }
-.panel { margin: 16px auto 0; font-size: 13px; display: block; width: fit-content; text-align: left; }
+.panel { margin: 8px auto 0; font-size: 13px; display: block; width: fit-content; text-align: left; }
 .panel summary { cursor: pointer; color: #555; }
 .panel textarea {
   width: 560px;
@@ -179,33 +179,6 @@ button.danger { background: #f3dcdc; color: #a11; }
 </head>
 <body>
 <h1>以撒的结合通关标记登记表</h1>
-<div class="tabs">
-  <button id="tab-marks" class="tab active">通关标记</button>
-  <button id="tab-challenges" class="tab">挑战</button>
-  <button id="tab-recommend" class="tab">解锁推荐</button>
-</div>
-<div id="view-marks">
-<div class="note">可通过左右键点击格子以切换角色解锁与标记达成情况。点击上方「解锁推荐」标签可查看下一步解锁建议（含道具 / 成就图标）。</div>
-<div class="stats" id="stats"></div>
-<div class="table-wrap" id="wrap"></div>
-<div class="img-export">
-  <button id="btnCopyImg">复制图片</button>
-  <button id="btnSaveImg">保存图片</button>
-</div>
-</div>
-<div id="view-challenges" style="display:none">
-  <div class="note">点击格子切换挑战状态：未解锁 → 已解锁未通过 → 已通过。</div>
-  <div class="stats" id="challengeStats"></div>
-  <div id="challengeGrid"></div>
-</div>
-<div id="view-recommend" style="display:none">
-  <div class="rec-stats" id="recStats"></div>
-  <div class="rec-layout">
-    <div class="rec-filters" id="recFilters"></div>
-    <div class="rec-list-wrap"><div class="rec-list" id="recList"></div></div>
-    <div class="rec-detail" id="recDetail"></div>
-  </div>
-</div>
 <details class="panel">
   <summary>数据导入 / 导出 / 重置</summary>
   <textarea id="io" placeholder="点击“导出到文本框”将数据粘贴到此处保存，需要时再点“从文本框导入”"></textarea>
@@ -222,8 +195,40 @@ button.danger { background: #f3dcdc; color: #a11; }
   </div>
   <input type="file" id="fileInput" accept=".dat" style="display:none">
 </details>
+<div class="tabs">
+  <button id="tab-marks" class="tab active">通关标记</button>
+  <button id="tab-challenges" class="tab">挑战</button>
+  <button id="tab-recommend" class="tab">解锁推荐</button>
+</div>
+<div id="view-marks">
+<div class="note">可通过左右键点击格子以切换角色解锁与标记达成情况。点击上方「解锁推荐」标签可查看下一步解锁建议（含道具 / 成就图标）。</div>
+<div class="stats" id="stats"></div>
+<div class="table-wrap" id="wrap"></div>
+<div class="img-export">
+  <button id="btnCopyImg">复制图片</button>
+  <button id="btnSaveImg">保存图片</button>
+</div>
+</div>
+<div id="view-challenges" style="display:none">
+  <div class="note">可通过左右键点击格子以切换挑战解锁与通过情况。</div>
+  <div class="stats" id="challengeStats"></div>
+  <div id="challengeGrid"></div>
+  <div class="img-export">
+    <button id="btnCopyChalImg">复制图片</button>
+    <button id="btnSaveChalImg">保存图片</button>
+  </div>
+</div>
+<div id="view-recommend" style="display:none">
+  <div class="rec-stats" id="recStats"></div>
+  <div class="rec-layout">
+    <div class="rec-filters" id="recFilters"></div>
+    <div class="rec-list-wrap"><div class="rec-list" id="recList"></div></div>
+    <div class="rec-detail" id="recDetail"></div>
+  </div>
+</div>
 <script src="data.js"></script>
 <script src="recommend.js"></script>
+<script src="challenge_icons.js"></script>
 <script>
 (function () {
   "use strict";
@@ -256,7 +261,7 @@ button.danger { background: #f3dcdc; color: #a11; }
     { name: "黑暗降临", unlock: 157, reward: "朝夕符文", ach: 92 },
     { name: "坦克", unlock: 158, reward: "诸神符文", ach: 93 },
     { name: "太阳系", unlock: 159, reward: "签筒符文", ach: 94 },
-    { name: "自杀之王", unlock: 160, reward: "桦木符文", ach: 95 },
+    { name: "自杀之王", unlock: 160, reward: "自杀之王", ach: 120 },
     { name: "好奇害死猫", unlock: 161, reward: "保护符文", ach: 96 },
     { name: "拆迁办", unlock: 162, reward: "混沌卡", ach: 97 },
     { name: "诅咒！", unlock: 163, reward: "信用卡", ach: 98 },
@@ -269,7 +274,7 @@ button.danger { background: #f3dcdc; color: #a11; }
     { name: "吐豆人", unlock: 0, reward: "死神之触", ach: 103 },
     { name: "宿主", unlock: 0, reward: "科技0.5", ach: 104 },
     { name: "顾家男人", unlock: 165, reward: "史诗胎儿博士", ach: 62 },
-    { name: "返璞归真", unlock: 166, reward: "编号丢失", ach: 105 },
+    { name: "返璞归真", unlock: 166, reward: "桦木符文", ach: 95 },
     { name: "超超超超超大层", unlock: 265, reward: "金心", ach: 224 },
     { name: "快马加鞭！", unlock: 266, reward: "免费保释卡", ach: 225 },
     { name: "蓝色炸弹人", unlock: 267, reward: "金炸弹", ach: 226 },
@@ -392,10 +397,10 @@ button.danger { background: #f3dcdc; color: #a11; }
       if (bytes[sec0 + a] !== 0) achievements[a] = true;
     }
 
-    // 挑战完成状态：sec6 前 45 字节，非零表示该挑战已通过
+    // 挑战完成状态：sec6 第 1-45 字节（索引 1 起），非零表示该挑战已通过
     var challenges = [];
     for (var ci = 0; ci < CN; ci++) {
-      var completed = sec6 + ci < bytes.length ? (bytes[sec6 + ci] !== 0) : false;
+      var completed = sec6 + ci + 1 < bytes.length ? (bytes[sec6 + ci + 1] !== 0) : false;
       var ul = CHALLENGES[ci].unlock;
       var unlocked = ul === 0 ? true : (achievements[ul] === true);
       challenges.push(completed ? 2 : (unlocked ? 1 : 0));
@@ -982,6 +987,35 @@ button.danger { background: #f3dcdc; color: #a11; }
     });
   };
 
+  document.getElementById("btnCopyChalImg").onclick = function () {
+    var btn = this;
+    renderChallengesImage(function (canvas) {
+      if (typeof canvas.toBlob !== "function") { showToast("当前浏览器不支持导出图片", btn); return; }
+      canvas.toBlob(function (blob) {
+        if (!navigator.clipboard || !window.ClipboardItem) { showToast("当前浏览器不支持复制图片，请改用保存", btn); return; }
+        navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).then(
+          function () { showToast("已复制图片到剪贴板", btn); },
+          function () { showToast("复制失败，请改用保存", btn); }
+        );
+      });
+    });
+  };
+
+  document.getElementById("btnSaveChalImg").onclick = function () {
+    renderChallengesImage(function (canvas) {
+      canvas.toBlob(function (blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "以撒挑战登记.png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    });
+  };
+
   // ===== 解锁推荐 =====
   var recEngine = null;
   var recCandidates = [];
@@ -1209,6 +1243,15 @@ button.danger { background: #f3dcdc; color: #a11; }
           buildChallenges();
         };
       })(cells[j]);
+      cells[j].oncontextmenu = (function (cell) {
+        return function (e) {
+          e.preventDefault();
+          var idx = +cell.getAttribute("data-i");
+          state.challenges[idx] = (state.challenges[idx] + 2) % 3;
+          save();
+          buildChallenges();
+        };
+      })(cells[j]);
     }
     var done = 0, unlocked = 0;
     for (var k = 0; k < CN; k++) {
@@ -1216,6 +1259,119 @@ button.danger { background: #f3dcdc; color: #a11; }
       if (state.challenges[k] >= 1) unlocked++;
     }
     document.getElementById("challengeStats").textContent = "已通过：" + done + " / " + CN + "，已解锁：" + unlocked + " / " + CN;
+  }
+
+  function renderChallengesImage(callback) {
+    var icons = window.CHALLENGE_ICONS || {};
+    var achs = [], seen = {};
+    for (var i = 0; i < CN; i++) {
+      var a = CHALLENGES[i].ach;
+      if (!seen[a]) { seen[a] = true; achs.push(a); }
+    }
+    var imgs = {};
+    var remaining = achs.length;
+    function checkDone() {
+      remaining--;
+      if (remaining <= 0) buildCanvas(imgs);
+    }
+    if (remaining === 0) { buildCanvas(imgs); return; }
+    for (var j = 0; j < achs.length; j++) {
+      (function (ach) {
+        var img = new Image();
+        img.onload = function () { imgs[ach] = img; checkDone(); };
+        img.onerror = checkDone;
+        img.src = icons[ach];
+      })(achs[j]);
+    }
+    function buildCanvas(imgs) {
+      var cols = 5;
+      var cellW = 185, cellH = 64, gap = 6, titleH = 28, pad = 10;
+      var iconSize = 40;
+      var textMaxW = cellW - iconSize - 8 - 8 - 6;
+      function truncateText(text, maxWidth, font) {
+        ctx.font = font;
+        if (ctx.measureText(text).width <= maxWidth) return text;
+        var t = text;
+        while (t.length > 1 && ctx.measureText(t + "…").width > maxWidth) {
+          t = t.slice(0, -1);
+        }
+        return t + "…";
+      }
+      function roundRect(x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+      }
+      var totalH = pad;
+      var segRows = [];
+      for (var s = 0; s < CHALLENGE_SEGS.length; s++) {
+        var rows = Math.ceil((CHALLENGE_SEGS[s].end - CHALLENGE_SEGS[s].start) / cols);
+        segRows.push(rows);
+        totalH += titleH + rows * cellH + (rows - 1) * gap;
+      }
+      var W = pad * 2 + cols * cellW + (cols - 1) * gap;
+      var H = totalH + pad;
+      var scale = 2;
+      var canvas = document.createElement("canvas");
+      canvas.width = W * scale;
+      canvas.height = H * scale;
+      var ctx = canvas.getContext("2d");
+      ctx.scale(scale, scale);
+      var FONT = '"Microsoft YaHei", "PingFang SC", sans-serif';
+
+      ctx.fillStyle = "#ece9e0";
+      ctx.fillRect(0, 0, W, H);
+
+      var y = pad;
+      for (var s = 0; s < CHALLENGE_SEGS.length; s++) {
+        var seg = CHALLENGE_SEGS[s];
+        ctx.fillStyle = "#2a5db0";
+        ctx.font = "bold 16px " + FONT;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(seg.name, pad, y + 20);
+        y += titleH;
+        for (var i = seg.start; i < seg.end; i++) {
+          var st = state.challenges[i] || 0;
+          var bg = st === 0 ? "#e5e1d8" : (st === 1 ? "#ffffff" : "#d33131");
+          var fg = st === 0 ? "#999999" : (st === 1 ? "#222222" : "#ffffff");
+          var col = (i - seg.start) % cols;
+          var row = Math.floor((i - seg.start) / cols);
+          var x = pad + col * (cellW + gap);
+          var cy = y + row * (cellH + gap);
+          roundRect(x, cy, cellW, cellH, 5);
+          ctx.fillStyle = bg;
+          ctx.fill();
+          ctx.strokeStyle = "#c4bfb3";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.textAlign = "left";
+          ctx.fillStyle = st === 2 ? "#f0d0d0" : "#999999";
+          ctx.font = "11px " + FONT;
+          ctx.fillText("#" + (i + 1), x + 8, cy + 17);
+          ctx.fillStyle = fg;
+          ctx.font = "bold 13px " + FONT;
+          ctx.fillText(truncateText(CHALLENGES[i].name || "？", textMaxW, "bold 13px " + FONT), x + 8, cy + 34);
+          ctx.fillStyle = st === 2 ? "#f7d6d6" : "#888888";
+          ctx.font = "11px " + FONT;
+          ctx.fillText(truncateText(CHALLENGES[i].reward, textMaxW, "11px " + FONT), x + 8, cy + 52);
+
+          var ach = CHALLENGES[i].ach;
+          var ix = x + cellW - iconSize - 8;
+          var iy = cy + (cellH - iconSize) / 2;
+          if (imgs[ach]) {
+            ctx.drawImage(imgs[ach], ix, iy, iconSize, iconSize);
+          }
+        }
+        y += segRows[s] * cellH + (segRows[s] - 1) * gap;
+      }
+      callback(canvas);
+    }
   }
 
   function switchTab(tab) {
