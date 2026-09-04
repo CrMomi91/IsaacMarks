@@ -12,8 +12,7 @@
     Defaults: {
       enabledDifficulties: { 1: true, 2: true, 3: true, 4: false, 5: false, 6: false },
       enabledQualities: { 0: true, 1: true, 2: true, 3: true, 4: true },
-      enabledTrinkets: true,
-      enabledNonItems: true,
+      enabledTypes: { collectible: true, trinket: true, card: true, rune: true, pill: true, feature: true },
       topN: 641,
       showLocked: false,
       preferRoutes: true
@@ -39,8 +38,7 @@
     this.settings = {
       enabledDifficulties: Object.assign({}, Config.Defaults.enabledDifficulties),
       enabledQualities: Object.assign({}, Config.Defaults.enabledQualities),
-      enabledTrinkets: Config.Defaults.enabledTrinkets,
-      enabledNonItems: Config.Defaults.enabledNonItems,
+      enabledTypes: Object.assign({}, Config.Defaults.enabledTypes),
       topN: Config.Defaults.topN,
       showLocked: Config.Defaults.showLocked,
       preferRoutes: Config.Defaults.preferRoutes
@@ -90,10 +88,13 @@
       this.settingsVersion++;
     },
     ToggleQuality: function (q) { this.SetQualityEnabled(q, !this.IsQualityEnabled(q)); },
-    IsTrinketsEnabled: function () { return this.settings.enabledTrinkets !== false; },
-    ToggleTrinkets: function () { this.settings.enabledTrinkets = !this.IsTrinketsEnabled(); this.settingsVersion++; },
-    IsNonItemsEnabled: function () { return this.settings.enabledNonItems !== false; },
-    ToggleNonItems: function () { this.settings.enabledNonItems = !this.IsNonItemsEnabled(); this.settingsVersion++; },
+    IsTypeEnabled: function (kind) { return !this.settings.enabledTypes || this.settings.enabledTypes[kind] !== false; },
+    SetTypeEnabled: function (kind, en) {
+      if (!this.settings.enabledTypes) this.settings.enabledTypes = {};
+      this.settings.enabledTypes[kind] = en === true;
+      this.settingsVersion++;
+    },
+    ToggleType: function (kind) { this.SetTypeEnabled(kind, !this.IsTypeEnabled(kind)); },
     IsShowLockedEnabled: function () { return this.settings.showLocked === true; },
     ToggleShowLocked: function () { this.settings.showLocked = !this.IsShowLockedEnabled(); this.settingsVersion++; },
     QualitySummary: function () {
@@ -635,16 +636,15 @@
       return "nonitem";
     },
     IsTaskFilterAllowed: function (t) {
-      var category = this.TaskCategory(t);
-      if (category === "collectible") {
+      var kind = t && t.rewardKind;
+      if (kind === "collectible") {
+        if (!this.state.IsTypeEnabled("collectible")) return false;
         var q = this.pool ? this.pool.GetTaskQuality(t) : null;
         if (q == null) q = Number(t.staticQuality);
         if (q == null || q < 0 || q > 4) return true;
         return this.state.IsQualityEnabled(q);
-      } else if (category === "trinket") {
-        return this.state.IsTrinketsEnabled();
       }
-      return this.state.IsNonItemsEnabled();
+      return this.state.IsTypeEnabled(kind);
     },
     ApplyRelativePoolScore: function (c, maxBonus) {
       c.poolImpact = this.pool ? this.pool.CandidateImpact(c) : null;

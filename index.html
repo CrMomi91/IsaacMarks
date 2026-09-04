@@ -136,12 +136,17 @@ button.danger { background: #f3dcdc; color: #a11; }
 .tab.active { background: #3b6098; color: #fff; border-color: #3b6098; }
 .rec-stats { font-size: 13px; color: #444; margin: 8px auto; text-align: left; max-width: 1100px; line-height: 1.7; }
 .rec-layout { display: flex; gap: 12px; max-width: 1100px; margin: 0 auto; align-items: flex-start; text-align: left; }
-.rec-filters { flex: 0 0 170px; background: #fff; border: 1px solid #c4bfb3; border-radius: 6px; padding: 10px; font-size: 12px; }
+.rec-filters { flex: 0 0 200px; background: #fff; border: 1px solid #c4bfb3; border-radius: 6px; padding: 10px; font-size: 12px; }
+.rec-filters .rec-sub { padding-left: 14px; }
 .rec-filters h4 { font-size: 13px; margin: 8px 0 4px; color: #2a5db0; }
 .rec-filters h4:first-child { margin-top: 0; }
 .rec-filters label { display: flex; align-items: center; gap: 6px; margin: 3px 0; cursor: pointer; }
 .rec-filters input { margin: 0; }
-.rec-list-wrap { flex: 1 1 auto; background: #fff; border: 1px solid #c4bfb3; border-radius: 6px; padding: 8px; min-height: 400px; max-height: 72vh; overflow-y: auto; }
+.rec-list-wrap { flex: 1 1 auto; background: #fff; border: 1px solid #c4bfb3; border-radius: 6px; padding: 8px; min-height: 400px; max-height: 72vh; overflow-y: auto; scrollbar-width: auto; scrollbar-color: #8a9bb8 #f0ece2; }
+.rec-list-wrap::-webkit-scrollbar { display: block; width: 14px; }
+.rec-list-wrap::-webkit-scrollbar-track { background: #f0ece2; border-radius: 7px; }
+.rec-list-wrap::-webkit-scrollbar-thumb { background: #8a9bb8; border-radius: 7px; border: 3px solid #f0ece2; }
+.rec-list-wrap::-webkit-scrollbar-thumb:hover { background: #3b6098; }
 .rec-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 13px; }
 .rec-item:hover { background: #f5f2ea; }
 .rec-item.selected { background: #e8e4da; }
@@ -1046,29 +1051,40 @@ button.danger { background: #f3dcdc; color: #a11; }
     var el = document.getElementById("recFilters");
     if (!recEngine) return;
     var st = recEngine.state;
+    var types = [
+      { key: "collectible", name: "道具" },
+      { key: "trinket", name: "饰品" },
+      { key: "card", name: "卡牌" },
+      { key: "rune", name: "符文" },
+      { key: "pill", name: "药丸" },
+      { key: "feature", name: "功能" }
+    ];
     var html = "<h4>难度</h4>";
     for (var d = 1; d <= 6; d++) {
       html += "<label><input type='checkbox' data-diff='" + d + "'" + (st.IsDifficultyEnabled(d) ? " checked" : "") + "> " + recEngine.Config.DifficultyNames[d] + "</label>";
     }
-    html += "<h4>品质（0级-4级）</h4>";
-    for (var q = 0; q <= 4; q++) {
-      html += "<label><input type='checkbox' data-q='" + q + "'" + (st.IsQualityEnabled(q) ? " checked" : "") + "> " + q + "级</label>";
+    html += "<h4>类型</h4>";
+    for (var i = 0; i < types.length; i++) {
+      html += "<label><input type='checkbox' data-type='" + types[i].key + "'" + (st.IsTypeEnabled(types[i].key) ? " checked" : "") + "> " + types[i].name + "</label>";
+      if (types[i].key === "collectible") {
+        html += "<div class='rec-sub'>";
+        for (var q = 0; q <= 4; q++) {
+          html += "<label><input type='checkbox' data-q='" + q + "'" + (st.IsQualityEnabled(q) ? " checked" : "") + "> " + q + "级</label>";
+        }
+        html += "</div>";
+      }
     }
-    html += "<h4>奖励类型</h4>";
-    html += "<label><input type='checkbox' data-trinket='1'" + (st.IsTrinketsEnabled() ? " checked" : "") + "> 饰品</label>";
-    html += "<label><input type='checkbox' data-nonitem='1'" + (st.IsNonItemsEnabled() ? " checked" : "") + "> 卡牌/符文/药丸/功能</label>";
     html += "<h4>其他</h4>";
     html += "<label><input type='checkbox' data-locked='1'" + (st.IsShowLockedEnabled() ? " checked" : "") + "> 显示锁定项</label>";
     el.innerHTML = html;
     var inputs = el.querySelectorAll("input");
-    for (var i = 0; i < inputs.length; i++) {
-      inputs[i].onchange = function (e) {
+    for (var j = 0; j < inputs.length; j++) {
+      inputs[j].onchange = function (e) {
         var inp = e.target;
         var s2 = recEngine.state;
         if (inp.dataset.diff) s2.SetDifficultyEnabled(+inp.dataset.diff, inp.checked);
         else if (inp.dataset.q !== undefined) s2.SetQualityEnabled(+inp.dataset.q, inp.checked);
-        else if (inp.dataset.trinket !== undefined) { s2.settings.enabledTrinkets = inp.checked; }
-        else if (inp.dataset.nonitem !== undefined) { s2.settings.enabledNonItems = inp.checked; }
+        else if (inp.dataset.type) s2.SetTypeEnabled(inp.dataset.type, inp.checked);
         else if (inp.dataset.locked !== undefined) s2.settings.showLocked = inp.checked;
         s2.settingsVersion++;
         recRefresh();
@@ -1110,7 +1126,7 @@ button.danger { background: #f3dcdc; color: #a11; }
       "当前加权池分：<b>" + poolAvg.toFixed(2) + "</b> / 10　|　匹配解锁：<b>" + counts[0] + "</b> 个现在可解锁 / <b>" + counts[1] + "</b> 个剩余　|　" +
       (achCount ? "已识别成就：<b>" + achCount + "</b> 个" : "<span style='color:#a11'>未导入存档，请先在下方「数据导入」导入 .dat 文件</span>");
     var html = "";
-    var limit = Math.min(recCandidates.length, 120);
+    var limit = recCandidates.length;
     for (var i = 0; i < limit; i++) {
       var c = recCandidates[i];
       var qTag = "";
@@ -1182,8 +1198,6 @@ button.danger { background: #f3dcdc; color: #a11; }
       for (var i = 0; i < rr.length; i++) {
         html += "<div>" + escapeHtml(rr[i].text) + "　<span class='rec-tag'>" + rr[i].value.toFixed(1) + "/10</span></div>";
       }
-    } else {
-      html += "<div class='lbl'>奖励</div><div>" + escapeHtml(c.reward) + "</div>";
     }
     html += "<div class='lbl'>如何解锁</div><div>" + escapeHtml(c.requirement) + "</div>";
     if (!c.available) {
